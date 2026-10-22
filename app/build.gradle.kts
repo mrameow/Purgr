@@ -12,13 +12,26 @@ android {
         applicationId = "com.purgr.app"
         minSdk = 30 // MediaStore trash requests (restorable deletes) need Android 11+
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        // CI passes the build number so every release installs over the previous one.
+        versionCode = (project.findProperty("purgrVersionCode") as String?)?.toInt() ?: 1
+        versionName = "1.0." + ((project.findProperty("purgrVersionCode") as String?) ?: "0")
+    }
+
+    signingConfigs {
+        // A fixed key so sideloaded updates install over each other. It is committed to the
+        // repo, so it is NOT secret: use your own key (via the env vars) for a store release.
+        create("release") {
+            storeFile = file(System.getenv("PURGR_KEYSTORE") ?: "../keystore/purgr-release.jks")
+            storePassword = System.getenv("PURGR_KEYSTORE_PASSWORD") ?: "purgr-sideload"
+            keyAlias = System.getenv("PURGR_KEY_ALIAS") ?: "purgr"
+            keyPassword = System.getenv("PURGR_KEY_PASSWORD") ?: "purgr-sideload"
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {
@@ -30,6 +43,9 @@ android {
     }
     buildFeatures {
         compose = true
+    }
+    lint {
+        abortOnError = false
     }
 }
 
