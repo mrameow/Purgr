@@ -8,7 +8,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,16 +16,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,9 +30,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.purgr.app.MediaItem
 import com.purgr.app.PurgrViewModel
@@ -52,30 +45,29 @@ fun ReviewScreen(vm: PurgrViewModel, launch: (IntentSender, (Boolean) -> Unit) -
     val context = LocalContext.current
     val deleting = vm.toDelete
     val bytes = deleting.sumOf { it.sizeBytes }
+    val extras = LocalPurgr.current
 
-    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-        Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = { vm.screen = Screen.Swipe }) { Text("< Keep swiping") }
-        }
-        Text("Review before deleting", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-        Text(
-            "Tap anything you want to rescue. Nothing has been deleted yet.",
-            Modifier.padding(top = 4.dp, bottom = 12.dp),
-            color = Color.Gray,
+    Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
+        ScreenHeader(
+            title = "Review",
+            subtitle = "Tap anything to keep it. Nothing is deleted yet.",
+            onBack = { vm.screen = Screen.Swipe },
         )
 
         LazyVerticalGrid(
             columns = GridCells.Fixed(3),
             modifier = Modifier.weight(1f),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             items(vm.marked, key = { it.id }) { item ->
                 ReviewCell(item, rescued = item.id in vm.rescued) { vm.toggleRescue(item) }
             }
         }
 
-        Button(
+        PillButton(
+            text = if (deleting.isEmpty()) "Nothing to delete" else
+                "Delete ${deleting.size} · ${Formatter.formatShortFileSize(context, bytes)}",
             onClick = {
                 val intent = vm.beginTrash()
                 if (intent == null) {
@@ -94,50 +86,42 @@ fun ReviewScreen(vm: PurgrViewModel, launch: (IntentSender, (Boolean) -> Unit) -
                 }
             },
             modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = DeleteRed),
-        ) {
-            Text(
-                if (deleting.isEmpty()) "Nothing to delete — done"
-                else "Delete ${deleting.size} (${Formatter.formatShortFileSize(context, bytes)})",
-            )
-        }
+            container = extras.danger,
+            content = Color.White,
+        )
         Text(
-            "Deleted items go to your phone's Trash first, and stay restorable from Purgr's trash (top right).",
-            Modifier.padding(vertical = 8.dp),
-            color = Color.Gray,
-            fontSize = 12.sp,
+            "Goes to your phone's Trash first. You can restore it from Purgr's trash.",
+            Modifier.fillMaxWidth().padding(vertical = 12.dp),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
 
 @Composable
 private fun ReviewCell(item: MediaItem, rescued: Boolean, onClick: () -> Unit) {
+    val extras = LocalPurgr.current
+    val shape = RoundedCornerShape(14.dp)
     Box(
         Modifier
             .aspectRatio(1f)
-            .clip(RoundedCornerShape(8.dp))
-            .background(Surface)
-            .then(if (rescued) Modifier.border(3.dp, KeepGreen, RoundedCornerShape(8.dp)) else Modifier)
+            .clip(shape)
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .border(1.dp, if (rescued) extras.keep else extras.hairline, shape)
             .clickable(onClick = onClick),
     ) {
         AsyncImage(
             model = item.uri,
             contentDescription = item.name,
             contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize().alpha(if (rescued) 1f else 0.55f),
+            modifier = Modifier.fillMaxSize().alpha(if (rescued) 0.4f else 1f),
         )
         if (item.isVideo) {
             Icon(
                 Icons.Default.PlayArrow, "Video", tint = Color.White,
-                modifier = Modifier.align(Alignment.BottomStart).padding(4.dp).size(20.dp),
+                modifier = Modifier.align(Alignment.BottomStart).padding(6.dp).size(18.dp),
             )
         }
-        if (rescued) {
-            Icon(
-                Icons.Default.Check, "Rescued", tint = Color.Black,
-                modifier = Modifier.align(Alignment.TopEnd).padding(6.dp).size(22.dp)
-                    .background(KeepGreen, CircleShape).padding(2.dp),
-            )
-        }
+        if (rescued) CheckBadge(extras.keep, Modifier.align(Alignment.Center))
     }
 }

@@ -8,11 +8,13 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.Button
@@ -54,7 +56,13 @@ fun PurgrApp() {
         hasAccess = granted() || it.values.any { ok -> ok }
     }
 
-    Box(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .statusBarsPadding()
+            .navigationBarsPadding(),
+    ) {
         if (!hasAccess) {
             PermissionScreen { permissionLauncher.launch(requiredPermissions()) }
         } else {
@@ -66,18 +74,23 @@ fun PurgrApp() {
 @Composable
 private fun PermissionScreen(onRequest: () -> Unit) {
     Column(
-        Modifier.fillMaxSize().padding(32.dp),
+        Modifier.fillMaxSize().padding(28.dp),
         verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("Purgr", style = MaterialTheme.typography.displayMedium)
+        Text("Purgr", style = MaterialTheme.typography.displaySmall)
         Text(
-            "Swipe right to keep, swipe left to delete.\n\nPurgr needs access to your photos and videos. " +
-                "Nothing is deleted until you review and confirm at the end of a session.",
-            Modifier.padding(vertical = 24.dp),
-            textAlign = TextAlign.Center,
+            "Swipe right to keep, left to delete.",
+            Modifier.padding(top = 8.dp),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Button(onClick = onRequest) { Text("Allow access") }
+        Text(
+            "Purgr needs to see your photos and videos. Nothing is deleted until you review and confirm at the end of a session, and nothing ever leaves your phone.",
+            Modifier.padding(top = 20.dp, bottom = 32.dp),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        PillButton("Allow access", onClick = onRequest, modifier = Modifier.fillMaxWidth())
     }
 }
 
@@ -98,7 +111,9 @@ private fun MainFlow() {
     BackHandler(enabled = vm.screen != Screen.Swipe) { vm.screen = Screen.Swipe }
 
     if (vm.loading) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(28.dp))
+        }
         return
     }
 
@@ -106,5 +121,6 @@ private fun MainFlow() {
         Screen.Swipe -> SwipeScreen(vm)
         Screen.Review -> ReviewScreen(vm, launch)
         Screen.Trash -> TrashScreen(vm, launch)
+        Screen.Settings -> SettingsScreen(vm)
     }
 }

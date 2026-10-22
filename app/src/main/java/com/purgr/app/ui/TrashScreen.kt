@@ -12,31 +12,19 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.material3.MaterialTheme
 import coil.compose.AsyncImage
 import com.purgr.app.MediaItem
 import com.purgr.app.PurgrViewModel
@@ -47,33 +35,31 @@ import com.purgr.app.Screen
 fun TrashScreen(vm: PurgrViewModel, launch: (IntentSender, (Boolean) -> Unit) -> Unit) {
     val selected = remember { mutableStateListOf<Long>() }
     val chosen = vm.trashed.filter { it.id in selected }
+    val allSelected = vm.trashed.isNotEmpty() && selected.size == vm.trashed.size
+    val extras = LocalPurgr.current
 
-    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-        Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = { vm.screen = Screen.Swipe }) { Text("< Back") }
-            Box(Modifier.weight(1f))
-            TextButton(onClick = {
-                if (selected.size == vm.trashed.size) selected.clear()
-                else { selected.clear(); selected.addAll(vm.trashed.map { it.id }) }
-            }) { Text(if (selected.size == vm.trashed.size && selected.isNotEmpty()) "Select none" else "Select all") }
+    Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
+        ScreenHeader(
+            title = "Trash",
+            subtitle = "Android empties it after about 30 days.",
+            onBack = { vm.screen = Screen.Swipe },
+        ) {
+            if (vm.trashed.isNotEmpty()) {
+                GhostButton(if (allSelected) "None" else "All", onClick = {
+                    selected.clear()
+                    if (!allSelected) selected.addAll(vm.trashed.map { it.id })
+                })
+            }
         }
-        Text("Trash", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-        Text(
-            "Deleted by mistake? Select items and restore them. Android empties the trash on its own after about 30 days.",
-            Modifier.padding(top = 4.dp, bottom = 12.dp),
-            color = Color.Gray,
-        )
 
         if (vm.trashed.isEmpty()) {
-            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Text("Trash is empty", color = Color.Gray)
-            }
+            CenteredMessage("Trash is empty", "Things you delete will wait here, ready to restore.", Modifier.weight(1f))
         } else {
             LazyVerticalGrid(
                 columns = GridCells.Fixed(3),
                 modifier = Modifier.weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 items(vm.trashed, key = { it.id }) { item ->
                     TrashCell(item, item.id in selected) {
@@ -83,17 +69,12 @@ fun TrashScreen(vm: PurgrViewModel, launch: (IntentSender, (Boolean) -> Unit) ->
             }
         }
 
-        Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Button(
-                onClick = {
-                    launch(vm.restoreRequest(chosen)) { ok ->
-                        if (ok) { selected.clear(); vm.reload(); vm.loadTrash() }
-                    }
-                },
-                enabled = chosen.isNotEmpty(),
-                modifier = Modifier.weight(1f),
-            ) { Text("Restore (${chosen.size})") }
-            OutlinedButton(
+        Row(
+            Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            PillButton(
+                text = "Delete forever",
                 onClick = {
                     launch(vm.deleteForeverRequest(chosen)) { ok ->
                         if (ok) { selected.clear(); vm.loadTrash() }
@@ -101,20 +82,33 @@ fun TrashScreen(vm: PurgrViewModel, launch: (IntentSender, (Boolean) -> Unit) ->
                 },
                 enabled = chosen.isNotEmpty(),
                 modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = DeleteRed),
-            ) { Text("Delete forever") }
+                container = extras.danger.copy(alpha = 0.12f),
+                content = extras.danger,
+            )
+            PillButton(
+                text = if (chosen.isEmpty()) "Restore" else "Restore ${chosen.size}",
+                onClick = {
+                    launch(vm.restoreRequest(chosen)) { ok ->
+                        if (ok) { selected.clear(); vm.reload(); vm.loadTrash() }
+                    }
+                },
+                enabled = chosen.isNotEmpty(),
+                modifier = Modifier.weight(1f),
+            )
         }
     }
 }
 
 @Composable
 private fun TrashCell(item: MediaItem, selected: Boolean, onClick: () -> Unit) {
+    val extras = LocalPurgr.current
+    val shape = RoundedCornerShape(14.dp)
     Box(
         Modifier
             .aspectRatio(1f)
-            .clip(RoundedCornerShape(8.dp))
-            .background(Surface)
-            .then(if (selected) Modifier.border(3.dp, KeepGreen, RoundedCornerShape(8.dp)) else Modifier)
+            .clip(shape)
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .border(if (selected) 2.dp else 1.dp, if (selected) MaterialTheme.colorScheme.primary else extras.hairline, shape)
             .clickable(onClick = onClick),
     ) {
         AsyncImage(
@@ -123,12 +117,6 @@ private fun TrashCell(item: MediaItem, selected: Boolean, onClick: () -> Unit) {
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize(),
         )
-        if (selected) {
-            Icon(
-                Icons.Default.Check, "Selected", tint = Color.Black,
-                modifier = Modifier.align(Alignment.TopEnd).padding(6.dp).size(22.dp)
-                    .background(KeepGreen, CircleShape).padding(2.dp),
-            )
-        }
+        if (selected) CheckBadge(MaterialTheme.colorScheme.primary, Modifier.align(Alignment.TopEnd).padding(6.dp))
     }
 }

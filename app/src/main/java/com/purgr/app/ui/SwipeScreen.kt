@@ -9,10 +9,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -22,13 +25,12 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,21 +39,19 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.draw.alpha
-import androidx.compose.foundation.layout.offset
 import coil.compose.AsyncImage
 import com.purgr.app.MediaItem
 import com.purgr.app.PurgrViewModel
@@ -69,6 +69,7 @@ fun SwipeScreen(vm: PurgrViewModel) {
     val next = vm.queue.getOrNull(1)
     val widthPx = with(LocalDensity.current) { LocalConfiguration.current.screenWidthDp.dp.toPx() }
     val threshold = widthPx * 0.3f
+    val extras = LocalPurgr.current
 
     fun commit(keep: Boolean) {
         if (busy) return
@@ -81,29 +82,66 @@ fun SwipeScreen(vm: PurgrViewModel) {
         }
     }
 
-    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-        TopBar(vm)
+    Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
+        ScreenHeader(
+            title = "Purgr",
+            subtitle = if (top == null) null else "${vm.queue.size} left",
+        ) {
+            if (vm.marked.isNotEmpty()) {
+                Text(
+                    "Review ${vm.marked.size}",
+                    Modifier
+                        .clip(CircleShape)
+                        .background(extras.danger.copy(alpha = 0.12f))
+                        .clickable { vm.screen = Screen.Review }
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = extras.danger,
+                )
+            }
+            IconButton(onClick = { vm.loadTrash(); vm.screen = Screen.Trash }) {
+                Icon(Icons.Default.Delete, "Trash", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            IconButton(onClick = { vm.screen = Screen.Settings }) {
+                Icon(Icons.Default.Settings, "Settings", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+
+        if (vm.totalCount > 0) {
+            LinearProgressIndicator(
+                progress = { ((vm.totalCount - vm.queue.size).toFloat() / vm.totalCount).coerceIn(0f, 1f) },
+                modifier = Modifier.fillMaxWidth().height(2.dp).clip(CircleShape),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = extras.hairline,
+                strokeCap = androidx.compose.ui.graphics.StrokeCap.Round,
+            )
+        }
 
         if (top == null) {
             DoneState(vm, Modifier.weight(1f))
             return@Column
         }
 
-        Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 8.dp)) {
+        Box(Modifier.weight(1f).fillMaxWidth().padding(top = 16.dp, bottom = 8.dp)) {
             // Sits underneath, growing as the top card moves away.
             if (next != null) {
                 MediaCard(
                     next,
-                    Modifier.fillMaxSize().scale(0.94f + 0.06f * (abs(offsetX.value) / threshold).coerceIn(0f, 1f)),
+                    Modifier.fillMaxSize().scale(0.95f + 0.05f * (abs(offsetX.value) / threshold).coerceIn(0f, 1f)),
                 )
             }
 
             val progress = (offsetX.value / threshold).coerceIn(-1f, 1f)
+            val edge = when {
+                progress > 0f -> lerp(extras.hairline, extras.keep, progress)
+                progress < 0f -> lerp(extras.hairline, extras.danger, -progress)
+                else -> extras.hairline
+            }
             Box(
                 Modifier
                     .fillMaxSize()
                     .offset { IntOffset(offsetX.value.roundToInt(), 0) }
-                    .rotate(offsetX.value / widthPx * 12f)
+                    .rotate(offsetX.value / widthPx * 10f)
                     .pointerInput(top.id) {
                         detectDragGestures(
                             onDragEnd = {
@@ -120,110 +158,49 @@ fun SwipeScreen(vm: PurgrViewModel) {
                         }
                     },
             ) {
-                MediaCard(top, Modifier.fillMaxSize(), playable = true)
-                Stamp("KEEP", KeepGreen, Alignment.TopStart, progress.coerceAtLeast(0f), -12f)
-                Stamp("DELETE", DeleteRed, Alignment.TopEnd, (-progress).coerceAtLeast(0f), 12f)
+                MediaCard(top, Modifier.fillMaxSize(), playable = true, edge = edge)
+                Stamp("Keep", extras.keep, Alignment.TopStart, progress.coerceAtLeast(0f))
+                Stamp("Delete", extras.danger, Alignment.TopEnd, (-progress).coerceAtLeast(0f))
             }
         }
 
-        ActionRow(
-            canUndo = vm.canUndo && !busy,
-            onDelete = { commit(false) },
-            onKeep = { commit(true) },
-            onUndo = { vm.undo() },
-        )
-    }
-}
-
-@Composable
-private fun TopBar(vm: PurgrViewModel) {
-    Row(
-        Modifier.fillMaxWidth().padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text("Purgr", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-            Text("${vm.queue.size} left to review", color = Color.Gray, fontSize = 12.sp)
+        Row(
+            Modifier.fillMaxWidth().padding(vertical = 16.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            RingButton(Icons.Default.Close, extras.danger, "Delete") { commit(false) }
+            GhostButton("Undo", onClick = { vm.undo() }, enabled = vm.canUndo && !busy)
+            RingButton(Icons.Default.Check, extras.keep, "Keep") { commit(true) }
         }
-        IconButton(onClick = { vm.loadTrash(); vm.screen = Screen.Trash }) {
-            Icon(Icons.Default.Delete, contentDescription = "Trash")
-        }
-        Button(
-            onClick = { vm.screen = Screen.Review },
-            enabled = vm.marked.isNotEmpty(),
-            colors = ButtonDefaults.buttonColors(containerColor = DeleteRed),
-        ) { Text("Review (${vm.marked.size})") }
     }
 }
 
 @Composable
-private fun ActionRow(
-    canUndo: Boolean,
-    onDelete: () -> Unit,
-    onKeep: () -> Unit,
-    onUndo: () -> Unit,
-) {
-    Row(
-        Modifier.fillMaxWidth().padding(vertical = 12.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        RoundButton(Icons.Default.Close, DeleteRed, "Delete", onDelete)
-        TextButton(onClick = onUndo, enabled = canUndo) { Text("Undo") }
-        RoundButton(Icons.Default.Check, KeepGreen, "Keep", onKeep)
-    }
-}
-
-@Composable
-private fun RoundButton(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    tint: Color,
-    description: String,
-    onClick: () -> Unit,
-) {
-    Box(
-        Modifier
-            .size(64.dp)
-            .clip(CircleShape)
-            .background(Surface)
-            .border(2.dp, tint, CircleShape)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(icon, description, tint = tint, modifier = Modifier.size(32.dp))
-    }
-}
-
-@Composable
-private fun androidx.compose.foundation.layout.BoxScope.Stamp(
-    text: String,
-    color: Color,
-    align: Alignment,
-    alpha: Float,
-    angle: Float,
-) {
+private fun BoxScope.Stamp(text: String, color: Color, align: Alignment, alpha: Float) {
+    if (alpha <= 0f) return
     Text(
         text,
         Modifier
             .align(align)
-            .padding(24.dp)
+            .padding(20.dp)
             .alpha(alpha)
-            .rotate(angle)
-            .border(3.dp, color, RoundedCornerShape(8.dp))
-            .padding(horizontal = 12.dp, vertical = 4.dp),
-        color = color,
-        fontSize = 32.sp,
-        fontWeight = FontWeight.ExtraBold,
+            .clip(CircleShape)
+            .background(color)
+            .padding(horizontal = 14.dp, vertical = 6.dp),
+        style = MaterialTheme.typography.labelLarge,
+        color = Color.White,
     )
 }
 
 @Composable
-fun MediaCard(item: MediaItem, modifier: Modifier = Modifier, playable: Boolean = false) {
+fun MediaCard(item: MediaItem, modifier: Modifier = Modifier, playable: Boolean = false, edge: Color = LocalPurgr.current.hairline) {
     val context = LocalContext.current
+    val shape = RoundedCornerShape(28.dp)
     Box(
         modifier
-            .clip(RoundedCornerShape(20.dp))
-            .background(Surface)
+            .clip(shape)
+            .background(MaterialTheme.colorScheme.surfaceContainer)
             .then(
                 if (playable && item.isVideo) {
                     Modifier.clickable {
@@ -250,41 +227,41 @@ fun MediaCard(item: MediaItem, modifier: Modifier = Modifier, playable: Boolean 
                 tint = Color.White,
                 modifier = Modifier
                     .align(Alignment.Center)
-                    .size(72.dp)
+                    .size(64.dp)
                     .background(Color(0x66000000), CircleShape),
             )
             Text(
                 formatDuration(item.durationMs),
-                Modifier.align(Alignment.BottomEnd).padding(12.dp)
-                    .background(Color(0x99000000), RoundedCornerShape(6.dp))
-                    .padding(horizontal = 8.dp, vertical = 2.dp),
-                fontSize = 12.sp,
+                Modifier.align(Alignment.BottomEnd).padding(14.dp)
+                    .background(Color(0x99000000), CircleShape)
+                    .padding(horizontal = 10.dp, vertical = 3.dp),
+                style = MaterialTheme.typography.labelMedium,
+                color = Color.White,
             )
         }
+        // Hairline ring drawn on top so it also tints toward green/red while dragging.
+        Box(Modifier.fillMaxSize().border(1.dp, edge, shape))
     }
 }
 
 @Composable
 private fun DoneState(vm: PurgrViewModel, modifier: Modifier) {
-    Column(
-        modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
+    CenteredMessage(
+        title = "All caught up",
+        subtitle = if (vm.marked.isEmpty()) "Nothing is waiting to be deleted."
+        else "${vm.marked.size} item${if (vm.marked.size == 1) " is" else "s are"} waiting for your review.",
+        modifier = modifier,
     ) {
-        Text("All caught up!", style = MaterialTheme.typography.headlineMedium)
-        Text(
-            if (vm.marked.isEmpty()) "Nothing is waiting to be deleted."
-            else "${vm.marked.size} item(s) are waiting for your review.",
-            Modifier.padding(vertical = 12.dp),
-            color = Color.Gray,
-        )
         if (vm.marked.isNotEmpty()) {
-            Button(
+            PillButton(
+                "Review ${vm.marked.size}",
                 onClick = { vm.screen = Screen.Review },
-                colors = ButtonDefaults.buttonColors(containerColor = DeleteRed),
-            ) { Text("Review & delete") }
+                container = LocalPurgr.current.danger,
+                content = Color.White,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
-        TextButton(onClick = { vm.startOver() }) { Text("Start over with all photos") }
+        GhostButton("Start over with all photos", onClick = { vm.startOver() })
     }
 }
 

@@ -6,13 +6,17 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import com.purgr.app.ui.PurgrApp
 import com.purgr.app.ui.PurgrTheme
+import com.purgr.app.ui.SyncSystemBars
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            PurgrTheme { PurgrApp() }
+            PurgrTheme {
+                SyncSystemBars()
+                PurgrApp()
+            }
         }
     }
 }

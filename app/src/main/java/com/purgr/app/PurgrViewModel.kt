@@ -10,7 +10,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
 
-enum class Screen { Swipe, Review, Trash }
+enum class Screen { Swipe, Review, Trash, Settings }
 
 class PurgrViewModel(app: Application) : AndroidViewModel(app) {
     private val repo = MediaRepository(app)
