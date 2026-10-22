@@ -1,0 +1,7 @@
+<resources>
+    <style name="Theme.Purgr" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/purgr_bg</item>
+        <item name="android:statusBarColor">@color/purgr_bg</item>
+        <item name="android:navigationBarColor">@color/purgr_bg</item>
+    </style>
+</resources>
