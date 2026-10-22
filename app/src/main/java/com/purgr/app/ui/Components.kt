@@ -75,7 +75,7 @@ fun GhostButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier
 
 /** Hairline-ringed round icon button used for the swipe controls. */
 @Composable
-fun RingButton(icon: ImageVector, tint: Color, description: String, onClick: () -> Unit, size: Dp = 60.dp) {
+fun RingButton(icon: ImageVector, tint: Color, description: String, size: Dp = 60.dp, onClick: () -> Unit) {
     Box(
         Modifier
             .size(size)
