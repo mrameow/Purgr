@@ -82,7 +82,7 @@ fun ReviewScreen(vm: PurgrViewModel, launch: (IntentSender, (Boolean) -> Unit) -
                     vm.finishWithoutDeleting()
                 } else {
                     // The system asks once per batch; we chain batches until all are done.
-                    fun run(sender: IntentSender) = launch(sender) { ok ->
+                    fun run(sender: IntentSender): Unit = launch(sender) { ok ->
                         if (ok) {
                             vm.onChunkTrashed()
                             vm.nextTrashRequest()?.let { run(it) }
